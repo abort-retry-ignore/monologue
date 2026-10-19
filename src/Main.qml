@@ -88,7 +88,7 @@ ApplicationWindow {
         }
         player.pause(); seekTo(target)
     }
-    function space() { if (finished) togglePlayback(); else backend.toggleRecording() }
+    function space() { if (backend.takeActive || !finished) backend.toggleRecording(); else togglePlayback() }
     // Leaving the editor deletes the take, so ask first unless it's been saved as it stands.
     function leaveTake(action) {
         if (backend.unsaved) { player.pause(); unsavedDialog.action = action; unsavedDialog.open() }
@@ -460,8 +460,10 @@ ApplicationWindow {
                             Accessible.name: "Camera"
                         }
                         SourceChoice {
-                            id: formatChoice; textOverride: "Format"
+                            id: formatChoice
                             font.pixelSize: 11
+                            Layout.maximumWidth: 160
+                            maximumTextWidth: 130
                             model: backend.cameraFormats; currentIndex: backend.cameraFormatIndex
                             enabled: !backend.takeActive && !win.busy && backend.cameraFormats.length > 0
                             delegate: CompactRow { }

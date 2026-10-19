@@ -52,10 +52,10 @@ static QString pixelName(int format) {
     }}
 }
 static QString fpsLabel(double minimum, double maximum) {
-    const auto digits = [](double v) { return v == int(v) ? 0 : 1; };
-    return minimum == maximum
-        ? QString("%1 fps").arg(maximum, 0, 'f', digits(maximum))
-        : QString("%1–%2 fps").arg(minimum, 0, 'f', digits(minimum)).arg(maximum, 0, 'f', digits(maximum));
+    // The app requests 30 fps clamped to what the format supports, so show that
+    // rate rather than the camera's full advertised range.
+    const double rate = media::targetFps(minimum, maximum);
+    return QString("%1 fps").arg(rate, 0, 'f', rate == int(rate) ? 0 : 1);
 }
 QString media::formatKey(const QSize &size, double minFps, double maxFps, int pixelFormat) {
     return QString("%1x%2:%3-%4:%5")

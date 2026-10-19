@@ -46,7 +46,8 @@ private slots:
     }
     void formatKeys() {
         QCOMPARE(media::formatLabel({1920,1080},30,30,int(QVideoFrameFormat::Format_Jpeg)),QString("1920 × 1080 · MJPEG · 30 fps"));
-        QCOMPARE(media::formatLabel({640,480},15,30,int(QVideoFrameFormat::Format_YUYV)),QString("640 × 480 · YUYV · 15–30 fps"));
+        QCOMPARE(media::formatLabel({640,480},15,30,int(QVideoFrameFormat::Format_YUYV)),QString("640 × 480 · YUYV · 30 fps"));
+        QCOMPARE(media::formatLabel({2560,1472},2,2,int(QVideoFrameFormat::Format_YUYV)),QString("2560 × 1472 · YUYV · 2 fps"));
         QVERIFY(media::formatKey({1920,1080},30,30,1)!=media::formatKey({1920,1080},30,60,1));
         QVERIFY(media::formatKey({1920,1080},30,30,1)!=media::formatKey({1920,1080},30,30,2));
         QCOMPARE(media::formatKey({1920,1080},30,30,1),media::formatKey({1920,1080},30,30,1));
