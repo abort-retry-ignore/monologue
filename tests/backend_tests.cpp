@@ -11,6 +11,7 @@
 #include <QJsonArray>
 #include <QStandardPaths>
 #include <QSettings>
+#include <QVideoFrameFormat>
 #include <cmath>
 #include "mediautils.h"
 #include "theme.h"
@@ -42,6 +43,13 @@ private slots:
         f.append({{3840,2160},30,60,0}); QCOMPARE(media::bestFormat(f),3);
         QCOMPARE(media::bestFormat({}),-1);
         QCOMPARE(media::targetFps(15,15),15.0);
+    }
+    void formatKeys() {
+        QCOMPARE(media::formatLabel({1920,1080},30,30,int(QVideoFrameFormat::Format_Jpeg)),QString("1920 × 1080 · MJPEG · 30 fps"));
+        QCOMPARE(media::formatLabel({640,480},15,30,int(QVideoFrameFormat::Format_YUYV)),QString("640 × 480 · YUYV · 15–30 fps"));
+        QVERIFY(media::formatKey({1920,1080},30,30,1)!=media::formatKey({1920,1080},30,60,1));
+        QVERIFY(media::formatKey({1920,1080},30,30,1)!=media::formatKey({1920,1080},30,30,2));
+        QCOMPARE(media::formatKey({1920,1080},30,30,1),media::formatKey({1920,1080},30,30,1));
     }
     void clockExcludesPauses() {
         TakeClock c; c.start(1000000);

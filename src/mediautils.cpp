@@ -9,6 +9,9 @@
 #include <cstring>
 #include <limits>
 #include <cstdio>
+#include <algorithm>
+#include <QMetaEnum>
+#include <QVideoFrameFormat>
 
 double media::targetFps(double minimum, double maximum) { return std::clamp(30.0, minimum, maximum); }
 int media::bestFormat(const QList<Format> &formats) {
@@ -34,6 +37,48 @@ QCameraFormat media::bestCameraFormat(const QCameraDevice &device) {
     for (const auto &f : formats) choices.append({f.resolution(), f.minFrameRate(), f.maxFrameRate(), int(f.pixelFormat())});
     const int index = bestFormat(choices);
     return index < 0 ? QCameraFormat() : formats[index];
+}
+static QString pixelName(int format) {
+    switch (format) {
+    case int(QVideoFrameFormat::Format_Jpeg): return "MJPEG";
+    case int(QVideoFrameFormat::Format_YUYV): return "YUYV";
+    case int(QVideoFrameFormat::Format_NV12): return "NV12";
+    default: {
+        const auto meta = QMetaEnum::fromType<QVideoFrameFormat::PixelFormat>();
+        const char *key = meta.valueToKey(format);
+        QString name = key ? QString::fromLatin1(key) : QString::number(format);
+        if (name.startsWith("Format_")) name.remove(0, 7);
+        return name;
+    }}
+}
+static QString fpsLabel(double minimum, double maximum) {
+    const auto digits = [](double v) { return v == int(v) ? 0 : 1; };
+    return minimum == maximum
+        ? QString("%1 fps").arg(maximum, 0, 'f', digits(maximum))
+        : QString("%1–%2 fps").arg(minimum, 0, 'f', digits(minimum)).arg(maximum, 0, 'f', digits(maximum));
+}
+QString media::formatKey(const QSize &size, double minFps, double maxFps, int pixelFormat) {
+    return QString("%1x%2:%3-%4:%5")
+        .arg(size.width()).arg(size.height())
+        .arg(minFps, 0, 'f', 2).arg(maxFps, 0, 'f', 2)
+        .arg(pixelFormat);
+}
+QString media::formatLabel(const QSize &size, double minFps, double maxFps, int pixelFormat) {
+    return QString("%1 × %2 · %3 · %4")
+        .arg(size.width()).arg(size.height())
+        .arg(pixelName(pixelFormat)).arg(fpsLabel(minFps, maxFps));
+}
+QList<QCameraFormat> media::sortedFormats(const QCameraDevice &device) {
+    auto formats = device.videoFormats();
+    std::sort(formats.begin(), formats.end(), [](const QCameraFormat &a, const QCameraFormat &b) {
+        const qint64 areaA = qint64(a.resolution().width()) * a.resolution().height();
+        const qint64 areaB = qint64(b.resolution().width()) * b.resolution().height();
+        if (areaA != areaB) return areaA > areaB;
+        if (a.maxFrameRate() != b.maxFrameRate()) return a.maxFrameRate() > b.maxFrameRate();
+        if (a.minFrameRate() != b.minFrameRate()) return a.minFrameRate() > b.minFrameRate();
+        return int(a.pixelFormat()) < int(b.pixelFormat());
+    });
+    return formats;
 }
 double media::peak(const QByteArray &data, const QAudioFormat &format) {
     double result = 0;

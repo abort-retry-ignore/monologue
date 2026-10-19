@@ -12,6 +12,11 @@ struct Format { QSize size; double minFps; double maxFps; int pixelFormat; };
 int bestFormat(const QList<Format> &formats);
 QCameraFormat bestCameraFormat(const QCameraDevice &device);
 double targetFps(double minimum, double maximum);
+// Stable identity and display text for one advertised camera format.
+QString formatKey(const QSize &size, double minFps, double maxFps, int pixelFormat);
+QString formatLabel(const QSize &size, double minFps, double maxFps, int pixelFormat);
+// The device's formats, biggest first, so the picker reads naturally.
+QList<QCameraFormat> sortedFormats(const QCameraDevice &device);
 double peak(const QByteArray &data, const QAudioFormat &format);
 QString copyAtomically(const QString &source, const QString &destination);
 QString normalizeMp4(const QString &path, double fps);

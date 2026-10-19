@@ -117,18 +117,35 @@ void Backend::activateSources() {
     if(m_writer || m_state=="saving" || m_probing) return;
     if(!m_activateHardware) { m_state="unavailable"; emit changed(); return; }
     releaseSources();
-    m_state="starting"; m_message.clear(); m_formatLabel.clear(); m_activatedAt=now();
+    m_state="starting"; m_message.clear(); m_formatLabel.clear(); m_cameraFormats.clear(); m_cameraFormatIndex=-1; m_activatedAt=now();
     QCameraDevice selectedCamera;
     for(const auto &d:QMediaDevices::videoInputs()) if(deviceId(d.id())==m_cameraId) selectedCamera=d;
     QAudioDevice selectedAudio;
     for(const auto &d:QMediaDevices::audioInputs()) if(deviceId(d.id())==m_audioId) selectedAudio=d;
     if(selectedCamera.isNull()) { m_state="unavailable"; m_message="Connect a camera or choose an available video source."; }
     else {
-        m_cameraFormat=media::bestCameraFormat(selectedCamera);
-        if(m_cameraFormat.isNull()) { m_state="unavailable"; m_message="This camera advertises no supported video formats."; }
+        m_formatChoices=media::sortedFormats(selectedCamera);
+        for(const auto &f:m_formatChoices)
+            m_cameraFormats.append(QVariantMap{{"label",media::formatLabel(f.resolution(),f.minFrameRate(),f.maxFrameRate(),int(f.pixelFormat()))}});
+        // bestFormat ranks the device's own order, so match its pick by identity
+        // instead of reusing the index against the sorted list.
+        const auto advertised=selectedCamera.videoFormats();
+        QList<media::Format> choices;
+        for(const auto &f:advertised) choices.append({f.resolution(),f.minFrameRate(),f.maxFrameRate(),int(f.pixelFormat())});
+        const int best=media::bestFormat(choices);
+        if(best<0) { m_state="unavailable"; m_message="This camera advertises no supported video formats."; }
         else {
+            // A format picked for this camera before wins, so a deliberate choice survives restarts.
+            const auto bestKey=media::formatKey(advertised[best].resolution(),advertised[best].minFrameRate(),advertised[best].maxFrameRate(),int(advertised[best].pixelFormat()));
+            int chosen=0;
+            const auto saved=m_settings.value("cameraFormat/"+m_cameraId).toString();
+            const auto wanted=saved.isEmpty()?bestKey:saved;
+            for(int i=0;i<m_formatChoices.size();++i)
+                if(media::formatKey(m_formatChoices[i].resolution(),m_formatChoices[i].minFrameRate(),m_formatChoices[i].maxFrameRate(),int(m_formatChoices[i].pixelFormat()))==wanted) { chosen=i; break; }
+            m_cameraFormatIndex=chosen;
+            m_cameraFormat=m_formatChoices[chosen];
             m_fps=media::targetFps(m_cameraFormat.minFrameRate(),m_cameraFormat.maxFrameRate());
-            m_formatLabel=QString("%1 × %2 · up to %3 fps").arg(m_cameraFormat.resolution().width()).arg(m_cameraFormat.resolution().height()).arg(m_fps,0,'f',m_fps==int(m_fps)?0:2);
+            m_formatLabel=media::formatLabel(m_cameraFormat.resolution(),m_cameraFormat.minFrameRate(),m_cameraFormat.maxFrameRate(),int(m_cameraFormat.pixelFormat()));
             m_camera=new QCamera(selectedCamera,this);
             m_camera->setCameraFormat(m_cameraFormat);
             m_capture.setCamera(m_camera);
@@ -149,6 +166,7 @@ void Backend::activateSources() {
     } else { m_settings.setValue("microphone/id","none"); m_settings.setValue("microphone/label","No audio"); }
     if(QStandardPaths::findExecutable("ffprobe").isEmpty() || QStandardPaths::findExecutable("ffmpeg").isEmpty()) { m_state="unavailable"; m_message="Install ffmpeg (including ffprobe) to record and inspect clips."; }
     else if(!Writer::supported(audioEnabled())) { m_state="unavailable"; m_message="This Qt multimedia backend cannot encode H.264 MP4 with the selected audio mode."; }
+    emit devicesChanged();
     emit changed();
 }
 void Backend::updateReady() {
@@ -160,7 +178,7 @@ void Backend::receiveVideo(const QVideoFrame &frame) {
     if(!m_camera || !frame.isValid()) return;
     m_lastVideoAt=now();
     if(frame.size()!=m_cameraFormat.resolution()) {
-        sourceFailed("The camera did not provide its maximum resolution. Choose another source or Retry."); return;
+        sourceFailed("The camera did not provide the selected resolution. Choose another format or Retry."); return;
     }
     m_lastFrame=frame;
     // Once stopped, the preview holds the take's final frame while it finalizes.
@@ -229,6 +247,12 @@ void Backend::selectCamera(int index) {
 void Backend::selectMicrophone(int index) {
     if(m_writer || index<0 || index>=m_microphones.size() || m_state=="saving" || m_probing) return;
     m_audioId=m_microphones[index].toMap()["id"].toString(); activateSources();
+}
+void Backend::selectCameraFormat(int index) {
+    if(m_writer || index<0 || index>=m_formatChoices.size() || m_state=="saving" || m_probing) return;
+    const auto &f=m_formatChoices[index];
+    m_settings.setValue("cameraFormat/"+m_cameraId,media::formatKey(f.resolution(),f.minFrameRate(),f.maxFrameRate(),int(f.pixelFormat())));
+    activateSources();
 }
 void Backend::retry() { if(!m_writer && m_state!="finished") activateSources(); }
 void Backend::toggleRecording() {

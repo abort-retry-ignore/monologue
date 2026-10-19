@@ -121,7 +121,7 @@ ApplicationWindow {
     readonly property bool controlFocused: activeFocusItem && (activeFocusItem instanceof AbstractButton || activeFocusItem instanceof ComboBox || activeFocusItem instanceof Slider || activeFocusItem instanceof TextInput)
     Shortcut {
         sequence: "Space"; context: Qt.WindowShortcut; autoRepeat: false
-        enabled: !win.overlayOpen && !cameraChoice.popup.visible && !microphoneChoice.popup.visible && !win.controlFocused && !win.busy
+        enabled: !win.overlayOpen && !cameraChoice.popup.visible && !microphoneChoice.popup.visible && !formatChoice.popup.visible && !win.controlFocused && !win.busy
         onActivated: win.space()
     }
     // Stopping ends the take and opens it for editing.
@@ -130,7 +130,7 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+S"; context: Qt.WindowShortcut; autoRepeat: false; enabled: win.finished && !win.busy && !win.overlayOpen; onActivated: { player.pause(); backend.save() } }
     Shortcut {
         sequence: "Escape"; context: Qt.WindowShortcut; autoRepeat: false
-        enabled: (backend.takeActive || win.finished) && !win.busy && !win.overlayOpen && !cameraChoice.popup.visible && !microphoneChoice.popup.visible
+        enabled: (backend.takeActive || win.finished) && !win.busy && !win.overlayOpen && !cameraChoice.popup.visible && !microphoneChoice.popup.visible && !formatChoice.popup.visible
         onActivated: { player.pause(); restartDialog.open() }
     }
     // Editing the finished clip.
@@ -246,6 +246,8 @@ ApplicationWindow {
         id: choice
         property string iconPath
         property string detail: ""
+        // Shows this fixed text instead of the selected row's label.
+        property string textOverride: ""
         property real maximumTextWidth: 260
         textRole: "label"
         focusPolicy: Qt.TabFocus
@@ -257,10 +259,10 @@ ApplicationWindow {
         background: Item { }
         contentItem: RowLayout {
             spacing: 8
-            Icon { path: choice.iconPath; color: win.dimColor }
+            Icon { visible: choice.iconPath !== ""; path: choice.iconPath; color: win.dimColor }
             Label {
                 Layout.maximumWidth: choice.maximumTextWidth; elide: Text.ElideRight; font: choice.font
-                text: choice.displayText
+                text: choice.textOverride !== "" ? choice.textOverride : choice.displayText
                 color: choice.activeFocus ? win.accent : choice.enabled ? (choice.hovered ? "#ffffff" : win.textColor) : win.dimColor
             }
             Icon { visible: choice.enabled; path: win.icons.chevron; implicitWidth: 12; implicitHeight: 12; color: win.dimColor }
@@ -273,6 +275,42 @@ ApplicationWindow {
             background: Rectangle { color: "#303037"; radius: win.cornerRadius }
         }
         HoverHandler { cursorShape: choice.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor }
+    }
+    // A tight popup row for long lists like camera formats.
+    component CompactRow: ItemDelegate {
+        id: row
+        required property int index
+        required property var modelData
+        readonly property bool selected: formatChoice.currentIndex === index
+        width: ListView.view.width
+        height: 24
+        highlighted: formatChoice.highlightedIndex === index
+        contentItem: RowLayout {
+            spacing: 8
+            Label {
+                id: rowLabel
+                Layout.fillWidth: true
+                text: modelData.label
+                font.pixelSize: 11
+                color: row.highlighted ? win.accent : win.textColor
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
+            }
+            Icon {
+                visible: row.selected; color: win.accent
+                implicitWidth: 12; implicitHeight: 12
+                path: "M4 12.5l5 5 11-13"
+            }
+        }
+        background: Rectangle {
+            radius: Math.min(4, win.cornerRadius)
+            color: row.highlighted ? "#2c2c2f" : "transparent"
+        }
+        ToolTip {
+            visible: row.hovered && rowLabel.truncated
+            text: modelData.label
+            background: Rectangle { color: "#303037"; radius: win.cornerRadius }
+        }
     }
     component ShortcutList: GridLayout {
         id: list
@@ -410,13 +448,29 @@ ApplicationWindow {
                     id: sources; visible: !win.finished; spacing: 2
                     anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
                     width: parent.width
-                    SourceChoice {
-                        id: cameraChoice; iconPath: win.icons.camera; detail: backend.formatLabel
-                        maximumTextWidth: Math.min(260, sources.width - 44)
-                        model: backend.cameras; currentIndex: backend.cameraIndex
-                        enabled: !backend.takeActive && !win.busy
-                        onActivated: index => { backend.selectCamera(index); liveVideo.forceActiveFocus() }
-                        Accessible.name: "Camera"
+                    RowLayout {
+                        Layout.fillWidth: true; spacing: 8
+                        SourceChoice {
+                            id: cameraChoice; iconPath: win.icons.camera; detail: backend.formatLabel
+                            Layout.fillWidth: true
+                            maximumTextWidth: Math.min(260, sources.width - 120)
+                            model: backend.cameras; currentIndex: backend.cameraIndex
+                            enabled: !backend.takeActive && !win.busy
+                            onActivated: index => { backend.selectCamera(index); liveVideo.forceActiveFocus() }
+                            Accessible.name: "Camera"
+                        }
+                        SourceChoice {
+                            id: formatChoice; textOverride: "Format"
+                            font.pixelSize: 11
+                            model: backend.cameraFormats; currentIndex: backend.cameraFormatIndex
+                            enabled: !backend.takeActive && !win.busy && backend.cameraFormats.length > 0
+                            delegate: CompactRow { }
+                            // The dropdown rewrites currentIndex itself; re-bind it to the backend's
+                            // chosen format whenever the list or the selection changes.
+                            onActivated: index => { backend.selectCameraFormat(index); formatChoice.currentIndex = Qt.binding(() => backend.cameraFormatIndex); liveVideo.forceActiveFocus() }
+                            onModelChanged: formatChoice.currentIndex = Qt.binding(() => backend.cameraFormatIndex)
+                            Accessible.name: "Camera format"
+                        }
                     }
                     SourceChoice {
                         id: microphoneChoice; iconPath: win.icons.microphone

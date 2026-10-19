@@ -27,6 +27,8 @@ class Backend : public QObject {
     Q_PROPERTY(QVariantList microphones READ microphones NOTIFY devicesChanged)
     Q_PROPERTY(int cameraIndex READ cameraIndex NOTIFY devicesChanged)
     Q_PROPERTY(int microphoneIndex READ microphoneIndex NOTIFY devicesChanged)
+    Q_PROPERTY(QVariantList cameraFormats READ cameraFormats NOTIFY devicesChanged)
+    Q_PROPERTY(int cameraFormatIndex READ cameraFormatIndex NOTIFY devicesChanged)
     Q_PROPERTY(bool ready READ ready NOTIFY changed)
     Q_PROPERTY(bool audioEnabled READ audioEnabled NOTIFY changed)
     Q_PROPERTY(bool takeActive READ takeActive NOTIFY changed)
@@ -55,8 +57,10 @@ public:
     QString formatLabel() const { return m_formatLabel; }
     QVariantList cameras() const { return m_cameras; }
     QVariantList microphones() const { return m_microphones; }
+    QVariantList cameraFormats() const { return m_cameraFormats; }
     int cameraIndex() const;
     int microphoneIndex() const;
+    int cameraFormatIndex() const { return m_cameraFormatIndex; }
     bool ready() const;
     bool audioEnabled() const { return m_audioId != "none"; }
     bool takeActive() const { return m_writer != nullptr; }
@@ -79,6 +83,7 @@ public:
     Q_INVOKABLE void setPreview(QObject *sink);
     Q_INVOKABLE void selectCamera(int index);
     Q_INVOKABLE void selectMicrophone(int index);
+    Q_INVOKABLE void selectCameraFormat(int index);
     Q_INVOKABLE void retry();
     Q_INVOKABLE void toggleRecording();
     Q_INVOKABLE void finish();
@@ -142,6 +147,7 @@ private:
     QAudioFormat m_audioFormat;
     QVideoFrame m_lastFrame;
     QCameraFormat m_cameraFormat;
+    QList<QCameraFormat> m_formatChoices;
     QElapsedTimer m_wall;
     QTimer m_tick;
     QTimer m_finishTimeout;
@@ -150,8 +156,9 @@ private:
     bool m_activateHardware;
     QString m_pendingDestination;
     Writer *m_writer = nullptr;
-    QVariantList m_cameras, m_microphones;
+    QVariantList m_cameras, m_microphones, m_cameraFormats;
     QString m_cameraId, m_audioId, m_state = "starting", m_message, m_formatLabel;
+    int m_cameraFormatIndex = -1;
     QString m_root, m_takeId, m_clipPath, m_clipFileName;
     QString m_interruption;
     // Held while a take is in use, so another Monologue never mistakes it for an interrupted one.
