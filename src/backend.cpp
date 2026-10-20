@@ -125,8 +125,11 @@ void Backend::activateSources() {
     if(selectedCamera.isNull()) { m_state="unavailable"; m_message="Connect a camera or choose an available video source."; }
     else {
         m_formatChoices=media::sortedFormats(selectedCamera);
-        for(const auto &f:m_formatChoices)
+        QStringList keys;
+        for(const auto &f:m_formatChoices) {
+            keys.append(media::formatKey(f.resolution(),f.minFrameRate(),f.maxFrameRate(),int(f.pixelFormat())));
             m_cameraFormats.append(QVariantMap{{"label",media::formatLabel(f.resolution(),f.minFrameRate(),f.maxFrameRate(),int(f.pixelFormat()))}});
+        }
         // bestFormat ranks the device's own order, so match its pick by identity
         // instead of reusing the index against the sorted list.
         const auto advertised=selectedCamera.videoFormats();
@@ -135,13 +138,10 @@ void Backend::activateSources() {
         const int best=media::bestFormat(choices);
         if(best<0) { m_state="unavailable"; m_message="This camera advertises no supported video formats."; }
         else {
-            // A format picked for this camera before wins, so a deliberate choice survives restarts.
+            // A format picked for this camera before wins, so a deliberate choice survives
+            // restarts; if the camera no longer offers it, fall back to the default pick.
             const auto bestKey=media::formatKey(advertised[best].resolution(),advertised[best].minFrameRate(),advertised[best].maxFrameRate(),int(advertised[best].pixelFormat()));
-            int chosen=0;
-            const auto saved=m_settings.value("cameraFormat/"+m_cameraId).toString();
-            const auto wanted=saved.isEmpty()?bestKey:saved;
-            for(int i=0;i<m_formatChoices.size();++i)
-                if(media::formatKey(m_formatChoices[i].resolution(),m_formatChoices[i].minFrameRate(),m_formatChoices[i].maxFrameRate(),int(m_formatChoices[i].pixelFormat()))==wanted) { chosen=i; break; }
+            const int chosen=media::chooseFormat(keys,m_settings.value("cameraFormat/"+m_cameraId).toString(),bestKey);
             m_cameraFormatIndex=chosen;
             m_cameraFormat=m_formatChoices[chosen];
             m_fps=media::targetFps(m_cameraFormat.minFrameRate(),m_cameraFormat.maxFrameRate());

@@ -50,7 +50,14 @@ private slots:
         QCOMPARE(media::formatLabel({2560,1472},2,2,int(QVideoFrameFormat::Format_YUYV)),QString("2560 × 1472 · YUYV · 2 fps"));
         QVERIFY(media::formatKey({1920,1080},30,30,1)!=media::formatKey({1920,1080},30,60,1));
         QVERIFY(media::formatKey({1920,1080},30,30,1)!=media::formatKey({1920,1080},30,30,2));
-        QCOMPARE(media::formatKey({1920,1080},30,30,1),media::formatKey({1920,1080},30,30,1));
+        QCOMPARE(media::formatKey({1920,1080},30,30,1),media::formatKey({1920,1080},30,30,1));    }
+    void formatChoice() {
+        const QStringList keys{"a","b","c"};
+        QCOMPARE(media::chooseFormat(keys,"c","a"),2);   // a saved choice wins
+        QCOMPARE(media::chooseFormat(keys,"","b"),1);    // nothing saved: the default
+        QCOMPARE(media::chooseFormat(keys,"gone","b"),1);// saved format no longer offered: the default, not the first
+        QCOMPARE(media::chooseFormat(keys,"gone","also gone"),0);
+        QCOMPARE(media::chooseFormat({},"a","b"),-1);
     }
     void clockExcludesPauses() {
         TakeClock c; c.start(1000000);

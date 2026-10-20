@@ -31,13 +31,6 @@ int media::bestFormat(const QList<Format> &formats) {
     }
     return best;
 }
-QCameraFormat media::bestCameraFormat(const QCameraDevice &device) {
-    const auto formats = device.videoFormats();
-    QList<Format> choices;
-    for (const auto &f : formats) choices.append({f.resolution(), f.minFrameRate(), f.maxFrameRate(), int(f.pixelFormat())});
-    const int index = bestFormat(choices);
-    return index < 0 ? QCameraFormat() : formats[index];
-}
 static QString pixelName(int format) {
     switch (format) {
     case int(QVideoFrameFormat::Format_Jpeg): return "MJPEG";
@@ -67,6 +60,14 @@ QString media::formatLabel(const QSize &size, double minFps, double maxFps, int 
     return QString("%1 × %2 · %3 · %4")
         .arg(size.width()).arg(size.height())
         .arg(pixelName(pixelFormat)).arg(fpsLabel(minFps, maxFps));
+}
+int media::chooseFormat(const QStringList &keys, const QString &saved, const QString &best) {
+    for (const auto &wanted : {saved, best}) {
+        if (wanted.isEmpty()) continue;
+        const int index = keys.indexOf(wanted);
+        if (index >= 0) return index;
+    }
+    return keys.isEmpty() ? -1 : 0;
 }
 QList<QCameraFormat> media::sortedFormats(const QCameraDevice &device) {
     auto formats = device.videoFormats();
