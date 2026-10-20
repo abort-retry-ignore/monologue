@@ -88,7 +88,7 @@ ApplicationWindow {
         }
         player.pause(); seekTo(target)
     }
-    function space() { if (backend.takeActive || !finished) backend.toggleRecording(); else togglePlayback() }
+    function space() { if (finished) togglePlayback(); else backend.toggleRecording() }
     // Leaving the editor deletes the take, so ask first unless it's been saved as it stands.
     function leaveTake(action) {
         if (backend.unsaved) { player.pause(); unsavedDialog.action = action; unsavedDialog.open() }
@@ -453,7 +453,7 @@ ApplicationWindow {
                         SourceChoice {
                             id: cameraChoice; iconPath: win.icons.camera; detail: backend.formatLabel
                             Layout.fillWidth: true
-                            maximumTextWidth: Math.min(260, sources.width - 120)
+                            maximumTextWidth: Math.min(260, sources.width - 44)
                             model: backend.cameras; currentIndex: backend.cameraIndex
                             enabled: !backend.takeActive && !win.busy
                             onActivated: index => { backend.selectCamera(index); liveVideo.forceActiveFocus() }
@@ -461,9 +461,9 @@ ApplicationWindow {
                         }
                         SourceChoice {
                             id: formatChoice
-                            font.pixelSize: 11
-                            Layout.maximumWidth: 160
-                            maximumTextWidth: 130
+                            font.pixelSize: 9
+                            Layout.maximumWidth: 90
+                            maximumTextWidth: 70
                             model: backend.cameraFormats; currentIndex: backend.cameraFormatIndex
                             enabled: !backend.takeActive && !win.busy && backend.cameraFormats.length > 0
                             delegate: CompactRow { }
